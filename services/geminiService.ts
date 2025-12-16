@@ -239,3 +239,62 @@ export const generateSpeech = async (text: string, voiceName: string = 'Kore'): 
     throw new Error("Failed to generate speech.");
   }
 };
+
+export const refineContent = async (content: string, instructions: string, format: ContentFormat): Promise<string> => {
+    const prompt = `
+      You are an expert content editor.
+      
+      Task: Refine the following content based on the instructions provided.
+      
+      --- ORIGINAL CONTENT ---
+      ${content}
+      
+      --- INSTRUCTIONS ---
+      ${instructions}
+      
+      Output the refined content in ${format} format. 
+      Maintain the same structure unless asked to change it.
+      Do NOT include any preamble or postscript, just the content.
+    `;
+  
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+      return response.text || content;
+    } catch (error) {
+      console.error("Refine Content Error:", error);
+      throw new Error("Failed to refine content.");
+    }
+};
+  
+export const generateImage = async (prompt: string): Promise<string> => {
+    try {
+        const cleanPrompt = prompt.replace(/^PROMPT:\s*/i, '');
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [{ text: cleanPrompt }],
+            },
+            config: {
+                imageConfig: {
+                    aspectRatio: "16:9",
+                }
+            }
+        });
+        
+        const parts = response.candidates?.[0]?.content?.parts;
+        if (parts) {
+            for (const part of parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    return part.inlineData.data;
+                }
+            }
+        }
+        throw new Error("No image generated.");
+    } catch (error: any) {
+        console.error("Generate Image Error:", error);
+        throw new Error("Failed to generate image.");
+    }
+};
